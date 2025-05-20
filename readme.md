@@ -38,7 +38,7 @@ Every time the master looter changes, the new master looter announces the roll t
 
 ### The (moveable) frame in game:
 
-![LootBlare Frame](./lootblareframe.png)
+![LootBlare Frame](./lootblareframe.PNG)
 
 Changelog:
 
