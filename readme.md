@@ -46,7 +46,7 @@ Every time the master looter changes, the new master looter announces the roll t
 
 Changelog:
 
-- **1.1.8**: Refactor RollCap settings and add configuration frame for user input
+- **2.0**: Refactor RollCap settings and add configuration frame for user input
 - **1.1.7**: Prevent blare window from closing due to timeout for the Master Looter
 - **1.1.6**: Add communication using CHAT_MSG_ADDON events
 - **1.1.5**: Remove announce message after each roll. Added time announce message after changing master loot
