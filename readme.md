@@ -1,4 +1,4 @@
-# Loot Blare 1.1.8
+# Loot Blare 2.0
 
 Loot Blare is a World of Warcraft addon originally designed **Turtle WoW**.
 
