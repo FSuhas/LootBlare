@@ -10,10 +10,34 @@ local item_query = 0.5
 local times = 5
 local discover = CreateFrame("GameTooltip", "CustomTooltip1", UIParent, "GameTooltipTemplate")
 local masterLooter = nil
-local srRollCap = 100
-local msRollCap = 100
-local osRollCap = 99
-local tmogRollCap = 98
+
+local defaults = {
+    srRollCap = 100,
+    msRollCap = 100,
+    osRollCap = 99,
+    tmogRollCap = 98,
+}
+
+-- Variables locales
+local srRollCap, msRollCap, osRollCap, tmogRollCap
+
+-- Charge les settings depuis RollCap SavedVariable
+local function LoadSettings()
+    RollCap = RollCap or {}
+
+    srRollCap = RollCap.srRollCap or defaults.srRollCap
+    msRollCap = RollCap.msRollCap or defaults.msRollCap
+    osRollCap = RollCap.osRollCap or defaults.osRollCap
+    tmogRollCap = RollCap.tmogRollCap or defaults.tmogRollCap
+end
+
+-- Sauvegarde les settings dans RollCap SavedVariable
+local function SaveSettings()
+    RollCap.srRollCap = srRollCap
+    RollCap.msRollCap = msRollCap
+    RollCap.osRollCap = osRollCap
+    RollCap.tmogRollCap = tmogRollCap
+end
 
 local BUTTON_WIDTH = 32
 local BUTTON_COUNT = 4
@@ -51,6 +75,152 @@ local LB_SET_ROLL_TIME = "Roll time set to "
 local function lb_print(msg)
   DEFAULT_CHAT_FRAME:AddMessage("|c" .. ADDON_TEXT_COLOR .. "LootBlare: " .. msg .. "|r")
 end
+
+------------------------------------------------------------------------------------
+                 -- Roll Cap Configuration Frame
+------------------------------------------------------------------------------------
+
+-- Fonction pour créer une ombre simulée autour du cadre
+local function CreateShadow(frame)
+  -- Création de la texture d'ombre
+  local shadow = frame:CreateTexture(nil, "BACKGROUND")
+  shadow:SetAllPoints(frame)
+  shadow:SetTexture("Interface/Tooltips/UI-Tooltip-Background")
+  shadow:SetVertexColor(0, 0, 0, 0.5) -- Couleur de l'ombre (noir, 50% opacité)
+  
+  -- Déplacement de l'ombre pour lui donner un effet de profondeur
+  shadow:SetPoint("TOPLEFT", 5, -5)
+  shadow:SetPoint("BOTTOMRIGHT", -5, 5)
+end
+
+-- Créer la frame principale
+local frame = CreateFrame("Frame", "RollCapConfigFrame", UIParent)
+frame:SetWidth(250)
+frame:SetHeight(220)
+frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+frame:SetMovable(true)
+frame:EnableMouse(true)
+frame:RegisterForDrag("LeftButton")
+frame:SetScript("OnDragStart", function() frame:StartMoving() end)
+frame:SetScript("OnDragStop", function() frame:StopMovingOrSizing() end)
+frame:SetClampedToScreen(true)
+frame:Hide()
+
+-- Backdrop basique
+frame:SetBackdrop({
+    bgFile = "Interface/Tooltips/UI-Tooltip-Background",
+    edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
+    tile = true, tileSize = 16, edgeSize = 16,
+    insets = { left = 4, right = 4, top = 4, bottom = 4 }
+  })
+  frame:SetBackdropColor(0, 0, 0, 0.85) -- Fond sombre et semi-transparent
+  frame:SetBackdropBorderColor(0.2, 0.2, 0.2)
+
+-- Créer l'ombre simulée
+CreateShadow(frame)
+
+-- Titre
+local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+title:SetPoint("TOP", frame, "TOP", 0, -10)
+title:SetText("Roll Caps settings")
+
+-- Fonction pour créer label + EditBox (version 1.12)
+local function CreateLabeledInput(parent, labelText, yOffset)
+    local label = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    label:SetPoint("TOPLEFT", parent, "TOPLEFT", 40, yOffset)
+    label:SetText(labelText)
+
+    local input = CreateFrame("EditBox", nil, parent)
+    input:SetWidth(60)
+    input:SetHeight(20)
+    input:SetPoint("LEFT", label, "RIGHT", 10, 0)
+    input:SetAutoFocus(false)
+    input:SetFontObject(GameFontHighlightSmall)
+    input:SetBackdrop({
+        bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
+        edgeFile = "Interface\\ChatFrame\\ChatFrameBackground",
+        edgeSize = 1,
+    })
+    input:SetBackdropColor(0, 0, 0, 0.5)
+    input:SetMaxLetters(3) -- max 3 chiffres
+    input:SetTextInsets(5, 5, 3, 3)
+
+    -- On va valider manuellement à la sauvegarde, pas ici
+
+    return input
+end
+
+-- Inputs
+local srInput = CreateLabeledInput(frame, "srRollCap :", -50)
+local msInput = CreateLabeledInput(frame, "msRollCap :", -85)
+local osInput = CreateLabeledInput(frame, "osRollCap :", -120)
+local tmogInput = CreateLabeledInput(frame, "tmogRollCap :", -155)
+
+-- Met à jour les inputs
+local function RefreshInputs()
+    srInput:SetText(tostring(srRollCap))
+    msInput:SetText(tostring(msRollCap))
+    osInput:SetText(tostring(osRollCap))
+    tmogInput:SetText(tostring(tmogRollCap))
+end
+
+-- Bouton enregistrer
+local saveButton = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+saveButton:SetWidth(120)
+saveButton:SetHeight(25)
+saveButton:SetPoint("BOTTOM", frame, "BOTTOM", 0, 10)
+saveButton:SetText("Save")
+
+saveButton:SetScript("OnClick", function()
+    local vals = {
+        sr = tonumber(srInput:GetText()),
+        ms = tonumber(msInput:GetText()),
+        os = tonumber(osInput:GetText()),
+        tmog = tonumber(tmogInput:GetText())
+    }
+
+    -- Validation entre 1 et 200
+    local capsNames = { sr = "SR", ms = "MS", os = "OS", tmog = "TMOG" }
+    for k, v in pairs(vals) do
+        if not v or v < 1 or v > 200 then
+            DEFAULT_CHAT_FRAME:AddMessage("|cffff0000Erreur:|r invalid value for " .. capsNames[k] .. "RollCap (from 1 to 200)")
+            return
+        end
+    end
+
+    srRollCap = vals.sr
+    msRollCap = vals.ms
+    osRollCap = vals.os
+    tmogRollCap = vals.tmog
+
+
+    SaveSettings()
+    DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00Roll Caps updates !|r")
+    frame:Hide()
+end)
+
+local eventFrame = CreateFrame("Frame")
+eventFrame:RegisterEvent("ADDON_LOADED")
+eventFrame:SetScript("OnEvent", function(self, event)
+      LoadSettings()
+      RefreshInputs()
+end)
+
+-- Slash commande
+SLASH_ROLLCAP1 = "/lbr"
+SlashCmdList["ROLLCAP"] = function(msg)
+    if frame:IsShown() then
+        frame:Hide()
+    else
+        RefreshInputs()
+        frame:Show()
+    end
+end
+
+
+------------------------------------------------------------------------------------
+                 -- LootBlare Main Functionality
+------------------------------------------------------------------------------------
 
 -- Fonction pour réinitialiser les messages de roll
 local function resetRolls()
@@ -192,19 +362,6 @@ local function CreateActionButton(frame, buttonText, tooltipText, index, onClick
   button:SetScript("OnClick", function()
     onClickAction()
   end)
-end
-
--- Fonction pour créer une ombre simulée autour du cadre
-local function CreateShadow(frame)
-  -- Création de la texture d'ombre
-  local shadow = frame:CreateTexture(nil, "BACKGROUND")
-  shadow:SetAllPoints(frame)
-  shadow:SetTexture("Interface/Tooltips/UI-Tooltip-Background")
-  shadow:SetVertexColor(0, 0, 0, 0.5) -- Couleur de l'ombre (noir, 50% opacité)
-  
-  -- Déplacement de l'ombre pour lui donner un effet de profondeur
-  shadow:SetPoint("TOPLEFT", 5, -5)
-  shadow:SetPoint("BOTTOMRIGHT", -5, 5)
 end
 
 -- Fonction pour créer le cadre principal des rolls avec ombre simulée
@@ -604,6 +761,7 @@ SlashCmdList["LOOTBLARE"] = function(msg)
     lb_print("Type /lb time <seconds> to set the duration the frame is shown. This value will be automatically set by the master looter after the first rolls.")
     lb_print("Type /lb autoClose on/off to enable/disable auto closing the frame after the time has elapsed.")
     lb_print("Type /lb settings to see the current settings.")
+    lb_print("Type /lbr to open the Roll Cap Configuration Frame.")
   elseif msg == "settings" then
     lb_print("Frame shown duration: " .. FrameShownDuration .. " seconds.")
     lb_print("Auto closing: " .. (FrameAutoClose and "on" or "off"))
