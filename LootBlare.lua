@@ -484,8 +484,13 @@ end
 local function ShowFrame(frame, duration, item)
   -- Fonction pour obtenir la couleur RVB en fonction de la qualité de l'item
   local function GetBorderColorByQuality(qualityIndex)
-    local r, g, b = GetItemQualityColor(qualityIndex)  -- Obtient les valeurs RVB pour la couleur
-    return r, g, b  -- Retourne les valeurs RVB
+    if qualityIndex then
+      local r, g, b = GetItemQualityColor(qualityIndex)
+      return r, g, b
+    else
+      -- Couleur par défaut (gris clair par exemple)
+      return 0.5, 0.5, 0.5
+    end
   end
 
   -- Fonction pour définir la couleur de la bordure du cadre
@@ -497,7 +502,7 @@ local function ShowFrame(frame, duration, item)
   -- Obtenir l'indice de qualité de l'objet (supposons que `item` est une chaîne avec un lien d'objet)
   local function GetItemQualityIndex(itemLink)
     local _, _, qualityIndex = GetItemInfo(itemLink)  -- Récupère la qualité de l'objet
-    return qualityIndex
+    return qualityIndex or nil
   end
   
   -- Récupérer l'indice de qualité de l'objet
