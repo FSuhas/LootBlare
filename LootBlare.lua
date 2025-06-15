@@ -218,6 +218,32 @@ SlashCmdList["ROLLCAP"] = function(msg)
 end
 
 
+local rollResultFrame = CreateFrame("Frame", "MyRollResultFrame", UIParent)
+rollResultFrame:SetWidth(600)
+rollResultFrame:SetHeight(80)
+rollResultFrame:SetPoint("TOP", UIParent, "TOP", 0, -100)
+rollResultFrame.text = rollResultFrame:CreateFontString(nil, "ARTWORK", "GameFontNormalHuge")
+rollResultFrame.text:SetAllPoints()
+rollResultFrame.text:SetJustifyH("CENTER", true)
+rollResultFrame.text:SetJustifyV("MIDDLE", true)
+rollResultFrame:Hide()
+
+function ShowRollResultMessage(message)
+  rollResultFrame.text:SetText(message)
+  rollResultFrame:Show()
+
+  local startTime = GetTime()
+
+  rollResultFrame:SetScript("OnUpdate", function(self)
+    local now = GetTime()
+    if now - startTime >= 5 then
+      this:Hide()
+      this:SetScript("OnUpdate", nil)
+    end
+  end)
+end
+
+
 ------------------------------------------------------------------------------------
                  -- LootBlare Main Functionality
 ------------------------------------------------------------------------------------
@@ -251,7 +277,7 @@ local function colorMsg(message)
   msg = message.msg
   class = message.class
   _,_,_, message_end = string.find(msg, "(%S+)%s+(.+)")
-  classColor = RAID_CLASS_COLORS[class]
+  classColor = RAID_CLASS_COLORS[class] or "FFFFFFFF" -- Blanc si classe inconnue
   textColor = DEFAULT_TEXT_COLOR
 
   if string.find(msg, "-"..srRollCap) then
@@ -281,7 +307,7 @@ end
 local function CheckItem(link)
   -- Essayer de récupérer les informations de l'item
   discover:SetOwner(UIParent, "ANCHOR_PRESERVE")
-  discover:SetHyperlink(link)
+  -- discover:SetHyperlink(link)
 
   -- Vérification si les données de l'item sont déjà récupérées
   if discoverTextLeft1 and discoverTooltipTextLeft1:IsVisible() then
@@ -371,42 +397,64 @@ local function CreateItemRollFrame()
   frame:SetHeight(250)
   frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 
-  -- Ajouter un fond élégant avec des bordures douces
+  -- Fond et bordure
   frame:SetBackdrop({
     bgFile = "Interface/Tooltips/UI-Tooltip-Background",
     edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
     tile = true, tileSize = 16, edgeSize = 16,
     insets = { left = 4, right = 4, top = 4, bottom = 4 }
   })
-  frame:SetBackdropColor(0, 0, 0, 0.85) -- Fond sombre et semi-transparent
+  frame:SetBackdropColor(0, 0, 0, 0.85)
   frame:SetBackdropBorderColor(0.2, 0.2, 0.2)
 
-  -- Créer l'ombre simulée
-  CreateShadow(frame)
+  -- Ombre (si définie ailleurs)
+  if CreateShadow then CreateShadow(frame) end
 
-  -- Ajouter des fonctionnalités de déplacement
+  -- Déplacement
   frame:SetMovable(true)
   frame:EnableMouse(true)
   frame:RegisterForDrag("LeftButton")
   frame:SetScript("OnDragStart", function() frame:StartMoving() end)
   frame:SetScript("OnDragStop", function() frame:StopMovingOrSizing() end)
 
-  -- Créer le bouton de fermeture
-  CreateCloseButton(frame)
+  -- Bouton de fermeture
+  if CreateCloseButton then CreateCloseButton(frame) end
 
-  -- Créer les boutons d'action pour les différents types de rolls
-  CreateActionButton(frame, "SR", "Roll for Soft Reserve", 1, function() RandomRoll(1, srRollCap) end)
-  CreateActionButton(frame, "MS", "Roll for Main Spec", 2, function() RandomRoll(1, msRollCap) end)
-  CreateActionButton(frame, "OS", "Roll for Off Spec", 3, function() RandomRoll(1, osRollCap) end)
-  CreateActionButton(frame, "TM", "Roll for Transmog", 4, function() RandomRoll(1, tmogRollCap) end)
+  -- Boutons de roll
+  if CreateActionButton then
+    CreateActionButton(frame, "SR", "Roll for Soft Reserve", 1, function() RandomRoll(1, srRollCap) end)
+    CreateActionButton(frame, "MS", "Roll for Main Spec",    2, function() RandomRoll(1, msRollCap) end)
+    CreateActionButton(frame, "OS", "Roll for Off Spec",     3, function() RandomRoll(1, osRollCap) end)
+    CreateActionButton(frame, "TM", "Roll for Transmog",     4, function() RandomRoll(1, tmogRollCap) end)
+  end
 
-  -- Ajouter un fondu lors de l'apparition du cadre
+  -- Barre de progression (timer)
+  frame.statusBar = CreateFrame("StatusBar", nil, frame)
+  frame.statusBar:SetWidth(200)
+  frame.statusBar:SetHeight(16)
+  frame.statusBar:SetPoint("TOP", frame, "TOP", 0, 20)
+  frame.statusBar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
+  frame.statusBar:SetStatusBarColor(0.2, 0.7, 0.2, 1)
+  frame.statusBar:Hide()
+
+  -- Texte au centre de la barre
+  frame.statusBar.text = frame.statusBar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  frame.statusBar.text:SetPoint("CENTER", frame.statusBar, "CENTER", 0, 0)
+  frame.statusBar.text:SetText("00s")
+
+  -- Timer text flottant (optionnel)
+  -- frame.timerText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+  -- frame.timerText:SetPoint("TOP", frame, "TOP", 0, -20)
+  -- frame.timerText:SetText("")
+
+  -- Apparition avec fondu
   frame:SetAlpha(0)
   frame:Hide()
-  UIFrameFadeIn(frame, 0.5, frame:GetAlpha(), 1)
+  UIFrameFadeIn(frame, 0.5, 0, 1)
 
   return frame
 end
+
 
 local itemRollFrame = CreateItemRollFrame()
 
@@ -482,61 +530,159 @@ end
 
 -- Fonction pour afficher le cadre avec les informations de l'item et la minuterie
 local function ShowFrame(frame, duration, item)
-  -- Fonction pour obtenir la couleur RVB en fonction de la qualité de l'item
   local function GetBorderColorByQuality(qualityIndex)
     if qualityIndex then
       local r, g, b = GetItemQualityColor(qualityIndex)
       return r, g, b
     else
-      -- Couleur par défaut (gris clair par exemple)
       return 0.5, 0.5, 0.5
     end
   end
 
-  -- Fonction pour définir la couleur de la bordure du cadre
   local function SetShowFrameBorderColor(frame, qualityIndex)
-    local r, g, b = GetBorderColorByQuality(qualityIndex)  -- Obtenons la couleur de la bordure
-    frame:SetBackdropBorderColor(r, g, b)  -- Applique la couleur à la bordure du cadre
+    local r, g, b = GetBorderColorByQuality(qualityIndex)
+    frame:SetBackdropBorderColor(r, g, b)
   end
 
-  -- Obtenir l'indice de qualité de l'objet (supposons que `item` est une chaîne avec un lien d'objet)
   local function GetItemQualityIndex(itemLink)
-    local _, _, qualityIndex = GetItemInfo(itemLink)  -- Récupère la qualité de l'objet
-    return qualityIndex or nil
+    local _, _, qualityIndex = GetItemInfo(itemLink)
+    return qualityIndex
   end
-  
-  -- Récupérer l'indice de qualité de l'objet
+
+  -- Simple table couleur par classe (RGB, sans alpha)
+  local classColors = {
+    ["Warrior"] = "|cFFC79C6E", -- marron/orange clair
+    ["Mage"]    = "|cFF69CCF0", -- bleu clair
+    ["Priest"]  = "|cFFFFFFFF", -- blanc
+    ["Shaman"]  = "|cFF0070DE", -- bleu foncé
+    ["Rogue"]   = "|cFFFFF569", -- jaune clair
+    ["Druid"]   = "|cFFFF7D0A", -- orange
+    ["Hunter"]  = "|cFFABD473", -- vert clair
+    ["Warlock"] = "|cFF9482C9", -- violet
+    ["Paladin"] = "|cFFF58CBA", -- rose
+  }
+
   local qualityIndex = GetItemQualityIndex(item)
-  
-  -- Définir la couleur de la bordure en fonction de la qualité de l'objet
   SetShowFrameBorderColor(frame, qualityIndex)
+
+  time_elapsed = 0
+  item_query = 1.5
+  times = 3
+  rollMessages = {}
+  isRolling = true
+
+  if frame.statusBar then
+    frame.statusBar:SetMinMaxValues(0, duration)
+    frame.statusBar:SetValue(duration)
+    frame.statusBar:Show()
+    frame.statusBar.text:SetText(duration .. "s")
+    frame.statusBar:SetAlpha(1)
+  end
 
   frame:SetScript("OnUpdate", function()
     time_elapsed = time_elapsed + arg1
     item_query = item_query - arg1
-    if frame.timerText then
-      frame.timerText:SetText(format("%.1f", duration - time_elapsed))
+
+    local remaining = duration - time_elapsed
+    if remaining < 0 then remaining = 0 end
+
+    if this.statusBar and this.statusBar:IsShown() then
+      this.statusBar:SetValue(remaining)
+      this.statusBar.text:SetText(string.format("%.0fs", remaining))
     end
+
+    if this.statusBar then
+      local percent = remaining / duration
+      if percent < 0.25 then
+        this.statusBar:SetStatusBarColor(1, 0.1, 0.1)
+      elseif percent < 0.5 then
+        this.statusBar:SetStatusBarColor(1, 0.6, 0)
+      else
+        this.statusBar:SetStatusBarColor(0.2, 0.7, 0.2)
+      end
+    end
+
+    if remaining <= 5 and remaining > 0 and this.statusBar then
+      local alpha = 0.5 + 0.5 * math.sin(GetTime() * 15)
+      this.statusBar:SetAlpha(alpha)
+    elseif this.statusBar then
+      this.statusBar:SetAlpha(1)
+    end
+
     if time_elapsed >= duration then
-      frame.timerText:SetText("0.0")
-      frame:SetScript("OnUpdate", nil)
+      this:SetScript("OnUpdate", nil)
       time_elapsed = 0
       item_query = 1.5
       times = 3
-      rollMessages = {}
       isRolling = false
+
+      if this.statusBar then
+        this.statusBar:Hide()
+        this.statusBar:SetAlpha(1)
+      end
+
+      local function FindWinner()
+        local winnerName, winnerRoll, winnerClass, winnerPriority = nil, nil, nil, 0
+        local allRolls = {}
+
+        local function insertRolls(list, priority)
+          for _, msg in ipairs(list) do
+            msg.priority = priority
+            table.insert(allRolls, msg)
+          end
+        end
+
+        insertRolls(srRollMessages, 4)
+        insertRolls(msRollMessages, 3)
+        insertRolls(osRollMessages, 2)
+        insertRolls(tmogRollMessages, 1)
+
+        for _, entry in ipairs(allRolls) do
+          if not winnerPriority or entry.priority > winnerPriority then
+            winnerPriority = entry.priority
+            winnerRoll = entry.roll
+            winnerName = entry.roller
+            winnerClass = entry.class
+          elseif entry.priority == winnerPriority and entry.roll > winnerRoll then
+            winnerRoll = entry.roll
+            winnerName = entry.roller
+            winnerClass = entry.class
+          end
+        end
+
+        if winnerName then
+          return winnerName, winnerRoll, winnerClass
+        else
+          return nil
+        end
+      end
+
+      local winnerName, winnerRoll, winnerClass = FindWinner()
+
+      local colorCode = classColors[winnerClass] or "|cFFFFFFFF"
+      local messageToSend
+      if winnerName then
+        messageToSend = string.format("The winner is %s%s|r with a roll of %d !", 
+          colorCode, winnerName, winnerRoll, item)
+      else
+        messageToSend = "Error: No winner detected."
+      end
+
+      ShowRollResultMessage(messageToSend)
+
       if FrameAutoClose and not (masterLooter == UnitName("player")) then
-        frame:Hide()
+        this:Hide()
       end
     end
+
     if times > 0 and item_query < 0 and not CheckItem(item) then
       times = times - 1
     else
-      if not SetItemInfo(itemRollFrame, item) then frame:Hide() end
+      if not SetItemInfo(itemRollFrame, item) then this:Hide() end
       times = 5
     end
   end)
-  
+
   frame:Show()
 end
 
@@ -742,9 +888,31 @@ itemRollFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 itemRollFrame:SetScript("OnEvent", function () HandleChatMessage(event,arg1,arg2) end)
 
 
--- local itemID = 19852  -- ID de l'item
+-- SLASH_ROLLHIST1 = "/rollhist"
+-- SlashCmdList["ROLLHIST"] = function()
+--   local itemID = 19852 -- Ancient Qiraji Ripper
+--   local itemLink = "item:" .. itemID
 
--- ShowFrame(itemRollFrame, 30, itemID)
+--   resetRolls()
+--   ShowFrame(itemRollFrame, 10, itemLink)
+
+--   srRollMessages = {
+--     { roller = "Thrall", roll = 40, msg = "Thrall rolls 40 (1-"..srRollCap..")", class = "Shaman" }
+--   }
+--   msRollMessages = {
+--     { roller = "Jaina", roll = 50, msg = "Jaina rolls 50 (1-"..msRollCap..")", class = "Mage" }
+--   }
+--   osRollMessages = {
+--     { roller = "Varian", roll = 45, msg = "Varian rolls 45 (1-"..osRollCap..")", class = "Warrior" }
+--   }
+--   tmogRollMessages = {
+--     { roller = "Anduin", roll = 27, msg = "Anduin rolls 27 (1-"..tmogRollCap..")", class = "Priest" }
+--   }
+
+--   UpdateTextArea(itemRollFrame)
+--   DEFAULT_CHAT_FRAME:AddMessage("Simulation de /rollhist lancée.", 1, 1, 0)
+-- end
+
 
 itemRollFrame:Hide()
 

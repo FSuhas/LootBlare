@@ -1,4 +1,4 @@
-# Loot Blare 2.0
+# Loot Blare 2.2
 
 Loot Blare is a World of Warcraft addon originally designed **Turtle WoW**.
 
@@ -46,6 +46,8 @@ Every time the master looter changes, the new master looter announces the roll t
 
 Changelog:
 
+- **2.2**: Update version to 2.2 and refactor RollCap settings with new configuration frame for user input
+- **2.1**: Update version to 2.1 in LootBlare.toc and improve item quality color handling in LootBlare.lua
 - **2.0**: Refactor RollCap settings and add configuration frame for user input
 - **1.1.7**: Prevent blare window from closing due to timeout for the Master Looter
 - **1.1.6**: Add communication using CHAT_MSG_ADDON events

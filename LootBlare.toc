@@ -1,7 +1,7 @@
 ## Interface: 11200
 ## Title: LootBlare 2.0
 ## Author: Ehawne, Sivent, Gulolio, |cffadd8e6Gon|r|cffffffffdo|r|cffff7f7fLeon|r
-## Version: 2.1
+## Version: 2.2
 ## Notes: Make loot rolls obvious
 ## SavedVariables:FrameShownDuration, FrameAutoClose, RollCap
 
