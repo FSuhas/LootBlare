@@ -871,7 +871,7 @@ local function HandleChatMessage(event, message, sender)
   elseif event == "PLAYER_ENTERING_WORLD" then
     SendAddonMessage(LB_PREFIX, LB_GET_DATA, "RAID") -- fetch ML info
   elseif event == "ADDON_LOADED"then
-    if FrameShownDuration == nil then FrameShownDuration = 15 end
+    if FrameShownDuration == nil then FrameShownDuration = 10 end
     if FrameAutoClose == nil then FrameAutoClose = true end
     if IsSenderMasterLooter(UnitName("player")) then
       SendAddonMessage(LB_PREFIX, LB_SET_ML .. UnitName("player"), "RAID")
