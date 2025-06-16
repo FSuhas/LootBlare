@@ -476,12 +476,15 @@ local function InitItemInfo(frame)
 
   local name = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
   name:SetPoint("TOP", icon, "BOTTOM", 0, -10)
+  
 
   frame.icon = icon
   frame.iconButton = iconButton
   frame.timerText = timerText
   frame.name = name
   frame.itemLink = ""
+  frame.name:SetWidth(200)
+  frame.name:SetJustifyH("CENTER")
 
   -- Tooltip et interaction avec animation
   local tt = CreateFrame("GameTooltip", "CustomTooltip2", UIParent, "GameTooltipTemplate")
@@ -509,6 +512,16 @@ local function GetColoredTextByQuality(text, qualityIndex)
   return string.format("%s%s|r", hex, text)
 end
 
+local function TruncateItemName(name, maxLen)
+  if type(name) ~= "string" then return tostring(name) end
+
+  if string.len(name) > maxLen then
+    return string.sub(name, 1, maxLen - 3) .. "..."
+  else
+    return name
+  end
+end
+
 -- Fonction pour mettre à jour les informations de l'item
 local function SetItemInfo(frame, itemLinkArg)
   local itemName, itemLink, itemQuality, _, _, _, _, _, itemIcon = GetItemInfo(itemLinkArg)
@@ -517,7 +530,8 @@ local function SetItemInfo(frame, itemLinkArg)
   if itemName and itemQuality < 2 then return false end
   if not itemIcon then
     frame.icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
-    frame.name:SetText("Unknown item, attempting to query...")
+    local truncatedName = TruncateItemName(itemName, 25)
+    frame.name:SetText(GetColoredTextByQuality(truncatedName, itemQuality))
     return true
   end
 
@@ -665,7 +679,8 @@ local function ShowFrame(frame, duration, item)
         messageToSend = string.format("The winner is %s%s|r with a roll of %d !", 
           colorCode, winnerName, winnerRoll, item)
       else
-        messageToSend = "Error: No winner detected."
+        -- Pas de gagnant
+        messageToSend = "No winner this time."
       end
 
       ShowRollResultMessage(messageToSend)
@@ -688,14 +703,20 @@ end
 
 
 -- Fonction pour créer un texte area
-local function CreateTextArea(frame)
-  local textArea = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  textArea:SetHeight(150)
-  textArea:SetPoint("TOP", frame, "TOP", 0, -80)
-  textArea:SetJustifyH("LEFT")
-  textArea:SetJustifyV("TOP")
+local function CreateTextAreas(frame)
+  local leftText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  leftText:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -73)
+  leftText:SetJustifyH("LEFT")
+  leftText:SetWidth(140)
+  leftText:SetHeight(150)
 
-  return textArea
+  local rightText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  rightText:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -10, -73)
+  rightText:SetJustifyH("RIGHT")
+  rightText:SetWidth(100)
+  rightText:SetHeight(150)
+
+  return leftText, rightText
 end
 
 local function GetClassOfRoller(rollerName)
@@ -710,44 +731,53 @@ local function GetClassOfRoller(rollerName)
 end
 
 local function UpdateTextArea(frame)
-  if not frame.textArea then
-    frame.textArea = CreateTextArea(frame)
+  if not frame.leftText or not frame.rightText then
+    frame.leftText, frame.rightText = CreateTextAreas(frame)
   end
 
-  -- frame.textArea:SetTeClear()  -- Clear the existing messages
-  local text = ""
-  local colored_msg = ""
-  local count = 0
-
+  -- tri ou autres préparations des listes de rolls
   sortRolls()
 
-  for i, v in ipairs(srRollMessages) do
-    if count >= 5 then break end
-    colored_msg = v.msg
-    text = text .. colorMsg(v) .. "\n"
-    count = count + 1
-  end
-  for i, v in ipairs(msRollMessages) do
-    if count >= 6 then break end
-    colored_msg = v.msg
-    text = text .. colorMsg(v) .. "\n"
-    count = count + 1
-  end
-  for i, v in ipairs(osRollMessages) do
-    if count >= 7 then break end
-    colored_msg = v.msg
-    text = text .. colorMsg(v) .. "\n"
-    count = count + 1
-  end
-  for i, v in ipairs(tmogRollMessages) do
-    if count >= 8 then break end
-    colored_msg = v.msg
-    text = text .. colorMsg(v) .. "\n"
-    count = count + 1
+  local leftLines = {}
+  local rightLines = {}
+  local count = 0
+
+  -- Pour détecter la priorité en fonction de la table
+  local function GetPrioLabel(list)
+    if list == srRollMessages then return "SR" end
+    if list == msRollMessages then return "MS" end
+    if list == osRollMessages then return "OS" end
+    if list == tmogRollMessages then return "TMOG" end
+    return ""
   end
 
-  frame.textArea:SetText(text)
+  local prioColors = {
+    SR   = "|c" .. SR_TEXT_COLOR,
+    MS   = "|c" .. MS_TEXT_COLOR,
+    OS   = "|c" .. OS_TEXT_COLOR,
+    TMOG = "|c" .. TM_TEXT_COLOR,
+  }
+
+  for _, rollList in ipairs({srRollMessages, msRollMessages, osRollMessages, tmogRollMessages}) do
+    for _, v in ipairs(rollList) do
+      if count >= 8 then break end
+      local prioLabel = GetPrioLabel(rollList)
+      local classColorHex = RAID_CLASS_COLORS[v.class] or "FFFFFFFF"
+      local classColor = "|c" .. classColorHex
+
+      local name = string.sub(v.roller, 1, 15)
+      local rollText = string.format("%2d (%d-%d)", v.roll, v.min or 1, v.max or 100)
+
+      table.insert(leftLines, string.format("%s%s|r", classColor, name))
+      table.insert(rightLines, string.format("%s%s|r", prioColors[prioLabel] or "|cFFFFFFFF", rollText))
+      count = count + 1
+    end
+  end
+
+  frame.leftText:SetText(table.concat(leftLines, "\n"))
+  frame.rightText:SetText(table.concat(rightLines, "\n"))
 end
+
 
 local function ExtractItemLinksFromMessage(message)
   local itemLinks = {}
@@ -888,30 +918,35 @@ itemRollFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 itemRollFrame:SetScript("OnEvent", function () HandleChatMessage(event,arg1,arg2) end)
 
 
--- SLASH_ROLLHIST1 = "/rollhist"
--- SlashCmdList["ROLLHIST"] = function()
---   local itemID = 19852 -- Ancient Qiraji Ripper
---   local itemLink = "item:" .. itemID
+SLASH_ROLLHIST1 = "/lbsim"
+SlashCmdList["ROLLHIST"] = function()
+  local itemID = 19019 -- Thunderfury, Blessed Blade of the Windseeker
+  local itemLink = "item:" .. itemID
 
---   resetRolls()
---   ShowFrame(itemRollFrame, 10, itemLink)
+  resetRolls()
+  ShowFrame(itemRollFrame, 10, itemLink)
 
---   srRollMessages = {
---     { roller = "Thrall", roll = 40, msg = "Thrall rolls 40 (1-"..srRollCap..")", class = "Shaman" }
---   }
---   msRollMessages = {
---     { roller = "Jaina", roll = 50, msg = "Jaina rolls 50 (1-"..msRollCap..")", class = "Mage" }
---   }
---   osRollMessages = {
---     { roller = "Varian", roll = 45, msg = "Varian rolls 45 (1-"..osRollCap..")", class = "Warrior" }
---   }
---   tmogRollMessages = {
---     { roller = "Anduin", roll = 27, msg = "Anduin rolls 27 (1-"..tmogRollCap..")", class = "Priest" }
---   }
+  srRollMessages = {
+    { roller = "Thrall", roll = 40, msg = "Thrall rolls 40 (1-"..srRollCap..")", class = "Shaman" },
+    { roller = "Silvana", roll = 26, msg = "Silvana rolls 26 (1-"..srRollCap..")", class = "Hunter" },
+    { roller = "Guldan", roll = 40, msg = "Guldan rolls 40 (1-"..srRollCap..")", class = "Warlock" },
+    { roller = "Illidan", roll = 30, msg = "Illidan rolls 30 (1-"..srRollCap..")", class = "Warlock" }
+  }
+  msRollMessages = {
+    { roller = "Jaina", roll = 50, msg = "Jaina rolls 50 (1-"..msRollCap..")", class = "Mage" },
+    { roller = "Tyrande", roll = 60, msg = "Tyrande rolls 60 (1-"..msRollCap..")", class = "Druid" }
+  }
+  osRollMessages = {
+    { roller = "Varian", roll = 45, msg = "Varian rolls 45 (1-"..osRollCap..")", class = "Warrior" },
+    { roller = "Kael'thas", roll = 55, msg = "Kael'thas rolls 55 (1-"..osRollCap..")", class = "Paladin" }
+  }
+  tmogRollMessages = {
+    { roller = "Anduin", roll = 99, msg = "Anduin rolls 27 (1-"..tmogRollCap..")", class = "Paladin" }
+  }
 
---   UpdateTextArea(itemRollFrame)
---   DEFAULT_CHAT_FRAME:AddMessage("Simulation de /rollhist lancée.", 1, 1, 0)
--- end
+  UpdateTextArea(itemRollFrame)
+  DEFAULT_CHAT_FRAME:AddMessage("Simulation of /lbsim has been launched.", 1, 1, 0)
+end
 
 
 itemRollFrame:Hide()
