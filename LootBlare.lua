@@ -58,12 +58,12 @@ local RAID_CLASS_COLORS = {
   ["Paladin"] = "FFF58CBA",
 }
 
-local ADDON_TEXT_COLOR= "FFEDD8BB"
-local DEFAULT_TEXT_COLOR = "FFFFFF00"
-local SR_TEXT_COLOR = "FFFF0000"
-local MS_TEXT_COLOR = "FFFFFF00"
-local OS_TEXT_COLOR = "FF00FF00"
-local TM_TEXT_COLOR = "FF00FFFF"
+local ADDON_TEXT_COLOR= "FFEDD8BB"  -- Couleur du texte de l'addon
+local DEFAULT_TEXT_COLOR = "FFFFFF00"  -- Jaune
+local SR_TEXT_COLOR = "ffe5302d" --  Rouge
+local MS_TEXT_COLOR = "FFFFFF00"  -- Jaune
+local OS_TEXT_COLOR = "FF00FF00"  -- Vert
+local TM_TEXT_COLOR = "FF00FFFF"  -- Cyan
 
 -- Prefixe et messages du plugin
 local LB_PREFIX = "LootBlare"
@@ -766,7 +766,21 @@ local function UpdateTextArea(frame)
       local classColor = "|c" .. classColorHex
 
       local name = string.sub(v.roller, 1, 15)
-      local rollText = string.format("%2d (%d-%d)", v.roll, v.min or 1, v.max or 100)
+      local minRoll = v.min
+      local maxRoll = v.max
+
+      -- Si min ou max manquent, les définir selon le type
+      if not minRoll or not maxRoll then
+        if prioLabel == "SR" or prioLabel == "MS" then
+          minRoll, maxRoll = 1, 100
+        elseif prioLabel == "OS" then
+          minRoll, maxRoll = 1, 99
+        elseif prioLabel == "TMOG" then
+          minRoll, maxRoll = 1, 98
+        end
+      end
+
+      local rollText = string.format("%2d (%d-%d)", v.roll, minRoll, maxRoll)
 
       table.insert(leftLines, string.format("%s%s|r", classColor, name))
       table.insert(rightLines, string.format("%s%s|r", prioColors[prioLabel] or "|cFFFFFFFF", rollText))
@@ -929,8 +943,8 @@ SlashCmdList["ROLLHIST"] = function()
   srRollMessages = {
     { roller = "Thrall", roll = 40, msg = "Thrall rolls 40 (1-"..srRollCap..")", class = "Shaman" },
     { roller = "Silvana", roll = 26, msg = "Silvana rolls 26 (1-"..srRollCap..")", class = "Hunter" },
-    { roller = "Guldan", roll = 40, msg = "Guldan rolls 40 (1-"..srRollCap..")", class = "Warlock" },
-    { roller = "Illidan", roll = 30, msg = "Illidan rolls 30 (1-"..srRollCap..")", class = "Warlock" }
+    { roller = "Guldan", roll = 35, msg = "Guldan rolls 35 (1-"..srRollCap..")", class = "Warlock" }
+    -- { roller = "Illidan", roll = 30, msg = "Illidan rolls 30 (1-"..srRollCap..")", class = "Warlock" }
   }
   msRollMessages = {
     { roller = "Jaina", roll = 50, msg = "Jaina rolls 50 (1-"..msRollCap..")", class = "Mage" },

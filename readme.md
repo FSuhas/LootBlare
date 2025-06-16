@@ -46,6 +46,7 @@ Every time the master looter changes, the new master looter announces the roll t
 
 Changelog:
 
+- **2.4**: Update version to 2.4 and adjust text colors for improved clarity in LootBlare.lua
 - **2.3**: Update version to 2.3 and enhance item name display with truncation and alignment adjustments
 - **2.2**: Update version to 2.2 and refactor RollCap settings with new configuration frame for user input
 - **2.1**: Update version to 2.1 in LootBlare.toc and improve item quality color handling in LootBlare.lua
