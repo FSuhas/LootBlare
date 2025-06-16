@@ -955,7 +955,7 @@ SlashCmdList["ROLLHIST"] = function()
     { roller = "Kael'thas", roll = 55, msg = "Kael'thas rolls 55 (1-"..osRollCap..")", class = "Paladin" }
   }
   tmogRollMessages = {
-    { roller = "Anduin", roll = 99, msg = "Anduin rolls 27 (1-"..tmogRollCap..")", class = "Paladin" }
+    { roller = "Anduin", roll = 98, msg = "Anduin rolls 98 (1-"..tmogRollCap..")", class = "Paladin" }
   }
 
   UpdateTextArea(itemRollFrame)
