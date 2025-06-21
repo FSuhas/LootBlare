@@ -11,6 +11,14 @@ local times = 5
 local discover = CreateFrame("GameTooltip", "CustomTooltip1", UIParent, "GameTooltipTemplate")
 local masterLooter = nil
 
+local function InitDatabase()
+  if not DBItems then 
+    DBItems = {}
+  end
+end
+
+InitDatabase()
+
 local defaults = {
     srRollCap = 100,
     msRollCap = 100,
@@ -458,8 +466,38 @@ end
 
 local itemRollFrame = CreateItemRollFrame()
 
+local function CacheItem(itemLink)
+  if not itemLink then return end
+  local tooltip = CreateFrame("GameTooltip", "ItemCacheTooltip", nil, "GameTooltipTemplate")
+  tooltip:SetOwner(UIParent, "ANCHOR_NONE")
+  tooltip:SetHyperlink(itemLink)
+end
+
+
+-- Fonction utilitaire pour stocker un item
+local function SaveItemToDatabase(itemLink)
+  local itemName, _, itemQuality, itemLevel, _, itemType, itemSubType, stackCount, itemEquipLoc, itemIcon, _, itemClassID, itemSubClassID = GetItemInfo(itemLink)
+  if not itemName then return end
+
+  if not DBItems[itemLink] then
+    DBItems[itemLink] = {
+      name = itemName,
+      quality = itemQuality,
+      itemLevel = itemLevel,
+      type = itemType,
+      subType = itemSubType,
+      stackCount = stackCount,
+      equipLoc = itemEquipLoc,
+      icon = itemIcon,
+      classID = itemClassID,
+      subClassID = itemSubClassID,
+      discoveredAt = date("%Y-%m-%d %H:%M:%S")
+    }
+  end
+end
+
 -- Fonction pour initialiser les informations de l'item
-local function InitItemInfo(frame)
+local function InitItemInfo(frame, itemLink)
   local icon = frame:CreateTexture()
   icon:SetWidth(40)
   icon:SetHeight(40)
@@ -506,8 +544,11 @@ local function InitItemInfo(frame)
   end)
 end
 
+
+
 -- Fonction pour afficher un texte coloré en fonction de la qualité de l'item
 local function GetColoredTextByQuality(text, qualityIndex)
+  if not qualityIndex then return text end  -- Ajout de cette ligne
   local r, g, b, hex = GetItemQualityColor(qualityIndex)
   return string.format("%s%s|r", hex, text)
 end
@@ -524,26 +565,51 @@ end
 
 -- Fonction pour mettre à jour les informations de l'item
 local function SetItemInfo(frame, itemLinkArg)
-  local itemName, itemLink, itemQuality, _, _, _, _, _, itemIcon = GetItemInfo(itemLinkArg)
-  if not frame.icon then InitItemInfo(frame) end
+  if not frame.icon then InitItemInfo(frame, itemLinkArg) end
 
-  if itemName and itemQuality < 2 then return false end
-  if not itemIcon then
-    frame.icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
-    local truncatedName = TruncateItemName(itemName, 25)
-    frame.name:SetText(GetColoredTextByQuality(truncatedName, itemQuality))
+  -- Si l'objet est déjà connu dans DBItems, on utilise les infos directement
+  local dbItem = DBItems[itemLinkArg]
+  if dbItem then
+    frame.icon:SetTexture(dbItem.equipLoc or "Interface\\Icons\\INV_Misc_QuestionMark")
+    frame.iconButton:SetNormalTexture(dbItem.equipLoc or "Interface\\Icons\\INV_Misc_QuestionMark")
+    frame.name:SetText(GetColoredTextByQuality(dbItem.name, dbItem.quality))
+    frame.itemLink = itemLinkArg
     return true
   end
 
+  -- Sinon, on tente de forcer le chargement
+  CacheItem(itemLinkArg)
+  local itemName, itemLink, itemQuality, itemLevel, _, itemType, itemSubType, _, itemIcon, _, itemClassID = GetItemInfo(itemLinkArg)
+
+  if not itemName or not itemIcon then
+    -- Infos incomplètes => on affiche un placeholder
+    frame.icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+    frame.name:SetText("Chargement…")
+    return false
+  end
+
+  -- Objet de trop basse qualité (gris/blanc), on ignore
+  if itemQuality < 2 then return false end
+
+  -- Affichage dans le cadre
   frame.icon:SetTexture(itemIcon)
   frame.iconButton:SetNormalTexture(itemIcon)
   frame.name:SetText(GetColoredTextByQuality(itemName, itemQuality))
-  frame.itemLink = itemLink
+  frame.itemLink = itemLink or itemLinkArg
+
+  -- Sauvegarde dans la DB locale
+  SaveItemToDatabase(itemLinkArg)
+
   return true
 end
 
+
 -- Fonction pour afficher le cadre avec les informations de l'item et la minuterie
 local function ShowFrame(frame, duration, item)
+  if not DBItems[item] then
+    SaveItemToDatabase(item)
+  end
+  
   local function GetBorderColorByQuality(qualityIndex)
     if qualityIndex then
       local r, g, b = GetItemQualityColor(qualityIndex)
@@ -693,11 +759,25 @@ local function ShowFrame(frame, duration, item)
     if times > 0 and item_query < 0 and not CheckItem(item) then
       times = times - 1
     else
-      if not SetItemInfo(itemRollFrame, item) then this:Hide() end
-      times = 5
-    end
-  end)
-
+    if not SetItemInfo(itemRollFrame, item) then
+          local waitFrame = CreateFrame("Frame")
+          waitFrame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
+          waitFrame:SetScript("OnEvent", function(_, _, receivedItemID)
+            local expectedID = tonumber(item:match("item:(%d+)"))
+            if receivedItemID == expectedID then
+              if SetItemInfo(itemRollFrame, item) then
+                waitFrame:UnregisterAllEvents()
+                waitFrame:SetScript("OnEvent", nil)
+                frame:Show()
+              end
+            end
+          end)
+          this:SetScript("OnUpdate", nil)
+          this:Hide()
+          return
+        end
+      end
+    end)
   frame:Show()
 end
 
@@ -934,7 +1014,7 @@ itemRollFrame:SetScript("OnEvent", function () HandleChatMessage(event,arg1,arg2
 
 SLASH_ROLLHIST1 = "/lbsim"
 SlashCmdList["ROLLHIST"] = function()
-  local itemID = 19019 -- Thunderfury, Blessed Blade of the Windseeker
+  local itemID = 18582 
   local itemLink = "item:" .. itemID
 
   resetRolls()
@@ -1013,5 +1093,20 @@ SlashCmdList["LOOTBLARE"] = function(msg)
     end
   else
   lb_print("Invalid command. Type /lb help for a list of commands.")
+  end
+end
+
+-- Slash command pour vider DBItems
+SLASH_CLEARDB1 = "/cleardb"
+
+SlashCmdList["CLEARDB"] = function()
+  if DBItems then
+    -- Vide la table DBItems
+    for k in pairs(DBItems) do
+      DBItems[k] = nil
+    end
+    print("DBItems has been cleared.")
+  else
+    print("DBItems table does not exist.")
   end
 end
