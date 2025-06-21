@@ -3,6 +3,6 @@
 ## Author: Ehawne, Sivent, Gulolio, |cffadd8e6Gon|r|cffffffffdo|r|cffff7f7fLeon|r
 ## Version: 2.5
 ## Notes: Make loot rolls obvious
-## SavedVariables:FrameShownDuration, FrameAutoClose, RollCap; DBItems
+## SavedVariables:FrameShownDuration, FrameAutoClose, RollCap, DBItems
 
 LootBlare.lua
