@@ -1,4 +1,4 @@
-﻿local weird_vibes_mode = true
+local weird_vibes_mode = true
 local srRollMessages = {}
 local msRollMessages = {}
 local osRollMessages = {}
@@ -1091,6 +1091,16 @@ SlashCmdList["LOOTBLARE"] = function(msg)
     else
       lb_print("Invalid option. Please enter 'on' or 'off'.")
     end
+  elseif msg == "ml" then
+    local targetName = UnitName("target")
+    if targetName then
+      masterLooter = targetName
+      lb_print("Master Looter manually set to: " .. targetName)
+      -- Optionally broadcast this change to the raid
+      SendAddonMessage(LB_PREFIX, LB_SET_ML .. targetName, "RAID")
+    else
+      lb_print("No target selected. Please target the master looter first.")
+    end  
   else
   lb_print("Invalid command. Type /lb help for a list of commands.")
   end
