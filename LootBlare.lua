@@ -49,7 +49,7 @@ end
 
 local BUTTON_WIDTH = 32
 local BUTTON_COUNT = 4
-local BUTTON_PADING = 10
+local BUTTON_PADING = 5
 local FONT_NAME = "Fonts\\FRIZQT__.TTF"
 local FONT_SIZE = 12
 local FONT_OUTLINE = "OUTLINE"
@@ -350,45 +350,57 @@ local function CreateCloseButton(frame)
   end)
 end
 
--- Créer un bouton d'action avec des effets visuels améliorés
-local function CreateActionButton(frame, buttonText, tooltipText, index, onClickAction)
+-- Créer un bouton d'action
+local function CreateActionButton(frame, buttonText, tooltipText, index, borderColor, onClickAction)
   local panelWidth = frame:GetWidth()
   local spacing = (panelWidth - (BUTTON_COUNT * BUTTON_WIDTH)) / (BUTTON_COUNT + 1)
   local button = CreateFrame("Button", nil, frame)
 
-  -- Taille et positionnement du bouton
-  button:SetWidth(BUTTON_WIDTH)
-  button:SetHeight(BUTTON_WIDTH)
-  button:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", index * spacing + (index - 1) * BUTTON_WIDTH, BUTTON_PADING)
+  button:SetWidth(BUTTON_WIDTH + 10)
+  button:SetHeight(BUTTON_WIDTH + 6)
+  button:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", index * spacing + (index - 1) * BUTTON_WIDTH - 6 , BUTTON_PADING)
 
   -- Texte du bouton
   button:SetText(buttonText)
   local font = button:GetFontString()
-  font:SetFont(FONT_NAME, FONT_SIZE, FONT_OUTLINE)
+  font:SetFont(FONT_NAME, 8, FONT_OUTLINE)
+  font:SetPoint("TOP", button, "TOP", 0, -3)
+  font:SetTextColor(0.7, 0.7, 0.7)
 
-  -- Fond du bouton
-  local bg = button:CreateTexture(nil, "BACKGROUND")
-  bg:SetAllPoints(button)
-  bg:SetTexture(1, 1, 1, 1)
-  bg:SetVertexColor(0.2, 0.2, 0.2, 1)
-  bg:SetGradient("VERTICAL", 0.3, 0.3, 0.3, 0.1, 0.1, 0.1)  -- Dégradé vertical sombre
+  -- Ajouter une bordure avec la couleur du dé
+  button:SetBackdrop({
+    edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
+    edgeSize = 12,
+    insets = { left = 4, right = 4, top = 4, bottom = 4 }
+  })
+  button:SetBackdropBorderColor(borderColor[1] * 0.7, borderColor[2] * 0.7, borderColor[3] * 0.7, 1)
 
-  -- Effet de survol : Changer la couleur du fond avec une transition douce
+  -- Ajouter l'icône du dé avec couleur spécifique
+  local icon = button:CreateTexture(nil, "ARTWORK")
+  icon:SetPoint("BOTTOM", button, "BOTTOM", 0, 0)
+  icon:SetWidth(BUTTON_WIDTH - 6)
+  icon:SetHeight(BUTTON_WIDTH - 6)
+  icon:SetTexture("Interface\\AddOns\\LootBlare\\Dice")
+  icon:SetVertexColor(borderColor[1] * 0.7, borderColor[2] * 0.7, borderColor[3] * 0.7)
+
+  -- Effet de survol
   button:SetScript("OnEnter", function(self)
-    bg:SetGradient("VERTICAL", 0.1, 0.1, 0.1, 0.3, 0.3, 0.3)  -- Changer vers un dégradé plus clair au survol
-    button:SetBackdropBorderColor(0.8, 0.8, 0.8)  -- Bordure claire au survol
+    button:SetBackdropBorderColor(borderColor[1], borderColor[2], borderColor[3], 1)
+    icon:SetVertexColor(borderColor[1], borderColor[2], borderColor[3])
+    font:SetTextColor(1, 1, 1)
     
     -- Affichage de l'info-bulle
-    GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
+    GameTooltip:SetOwner(button, "ANCHOR_NONE")
+    GameTooltip:SetPoint("BOTTOM", button, "TOP", 0, 0)
     GameTooltip:SetText(tooltipText, nil, nil, nil, nil, true)
     GameTooltip:Show()
   end)
 
-  -- Retour à la couleur de fond normale lorsqu'on quitte
+  -- Retour à la couleur normale
   button:SetScript("OnLeave", function(self)
-    bg:SetTexture(1, 1, 1, 1)
-    bg:SetVertexColor(0.2, 0.2, 0.2, 1)
-    bg:SetGradient("VERTICAL", 0.3, 0.3, 0.3, 0.1, 0.1, 0.1)
+    button:SetBackdropBorderColor(borderColor[1] * 0.7, borderColor[2] * 0.7, borderColor[3] * 0.7, 1)
+    icon:SetVertexColor(borderColor[1] * 0.7, borderColor[2] * 0.7, borderColor[3] * 0.7)
+    font:SetTextColor(0.7, 0.7, 0.7)
     GameTooltip:Hide()
   end)
 
@@ -428,12 +440,18 @@ local function CreateItemRollFrame()
   -- Bouton de fermeture
   if CreateCloseButton then CreateCloseButton(frame) end
 
+  -- Couleurs RGB pour les barres de statut
+  local SR_RGB = {0.898, 0.188, 0.176}  -- Rouge
+  local MS_RGB = {1.0, 1.0, 0.0}        -- Jaune
+  local OS_RGB = {0.0, 1.0, 0.0}        -- Vert
+  local TM_RGB = {0.0, 1.0, 1.0}        -- Cyan
+
   -- Boutons de roll
   if CreateActionButton then
-    CreateActionButton(frame, "SR", "Roll for Soft Reserve", 1, function() RandomRoll(1, srRollCap) end)
-    CreateActionButton(frame, "MS", "Roll for Main Spec",    2, function() RandomRoll(1, msRollCap) end)
-    CreateActionButton(frame, "OS", "Roll for Off Spec",     3, function() RandomRoll(1, osRollCap) end)
-    CreateActionButton(frame, "TM", "Roll for Transmog",     4, function() RandomRoll(1, tmogRollCap) end)
+    CreateActionButton(frame, "SR", "Roll for Soft Reserve", 1, SR_RGB, function() RandomRoll(1, srRollCap) end)
+    CreateActionButton(frame, "MS", "Roll for Main Spec",    2, MS_RGB, function() RandomRoll(1, msRollCap) end)
+    CreateActionButton(frame, "OS", "Roll for Off Spec",     3, OS_RGB, function() RandomRoll(1, osRollCap) end)
+    CreateActionButton(frame, "TM", "Roll for Transmog",     4, TM_RGB, function() RandomRoll(1, tmogRollCap) end)
   end
 
   -- Barre de progression (timer)
